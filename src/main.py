@@ -163,7 +163,7 @@ def train(epochs, initial_lr, update, wd, key):
 
     # Project the weights to the manifold for manifold optimizers
     if optimizer is None:
-        params = jax.tree_map(lambda p: update(p, jnp.zeros_like(p), eta=0), params)
+        params = jax.tree.map(lambda p: update(p, jnp.zeros_like(p), eta=0), params)
 
     epoch_losses = []
     epoch_times = []
@@ -194,7 +194,7 @@ def train(epochs, initial_lr, update, wd, key):
             # Apply updates
             if optimizer is None:
                 # Use manifold optimizer
-                params = jax.tree_map(lambda p, g: update(p, g, eta=lr), params, grads)
+                params = jax.tree.map(lambda p, g: update(p, g, eta=lr), params, grads)
             else:
                 # Use AdamW
                 # Update learning rate in optimizer
