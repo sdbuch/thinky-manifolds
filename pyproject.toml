@@ -10,4 +10,6 @@ dependencies = [
     "pyright>=1.1.405",
     "pytest>=8.4.2",
     "treescope>=0.1.10",
+    "tensorboard>=2.15.0",
+    "tensorboard-plugin-profile>=2.15.0",
 ]
