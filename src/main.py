@@ -6,6 +6,7 @@ from typing import Tuple, Dict, Any
 
 import jax
 import jax.numpy as jnp
+import jax.profiler
 import numpy as np
 from jax import random
 import optax
@@ -296,6 +297,15 @@ if __name__ == "__main__":
         "--seed", type=int, default=42, help="Seed for the random number generator."
     )
     parser.add_argument("--wd", type=float, default=0.0, help="Weight decay for AdamW.")
+    parser.add_argument(
+        "--profile", action="store_true", help="Enable JAX profiling for TensorBoard."
+    )
+    parser.add_argument(
+        "--profile_dir",
+        type=str,
+        default="/tmp/tensorboard",
+        help="Directory to save profiling data."
+    )
     args = parser.parse_args()
 
     # Set random seed for reproducibility
@@ -315,10 +325,47 @@ if __name__ == "__main__":
         f"--- WD: {args.wd}" if args.update == "adam" else "",
     )
 
-    params, epoch_losses, epoch_times = train(
-        epochs=args.epochs, initial_lr=args.lr, update=update, wd=args.wd, key=key
-    )
+    if args.profile:
+        # Create profiling directory with run-specific name
+        profile_run_dir = os.path.join(
+            args.profile_dir,
+            f"{args.update}_lr{args.lr}_epochs{args.epochs}_seed{args.seed}"
+        )
+        os.makedirs(profile_run_dir, exist_ok=True)
+        print(f"Profiling enabled. Data will be saved to: {profile_run_dir}")
+        print("To view with TensorBoard: tensorboard --logdir=" + args.profile_dir)
+
+        # Profile the training
+        with jax.profiler.trace(profile_run_dir):
+            print("Starting profiled training...")
+            total_start_time = time.time()
+
+            params, epoch_losses, epoch_times = train(
+                epochs=args.epochs, initial_lr=args.lr, update=update, wd=args.wd, key=key
+            )
+            # Ensure operations complete before profiling ends
+            jax.tree.map(lambda x: x.block_until_ready(), params)
+
+            total_training_time = time.time() - total_start_time
+            print(f"Total training time (wall clock): {total_training_time:.2f} seconds")
+    else:
+        print("Starting training (no profiling)...")
+        total_start_time = time.time()
+
+        params, epoch_losses, epoch_times = train(
+            epochs=args.epochs, initial_lr=args.lr, update=update, wd=args.wd, key=key
+        )
+
+        total_training_time = time.time() - total_start_time
+        print(f"Total training time (wall clock): {total_training_time:.2f} seconds")
+
+    # Evaluation (not profiled to focus on training performance)
+    print("Evaluating model...")
+    eval_start_time = time.time()
     test_acc, train_acc = eval_model(params)
+    eval_time = time.time() - eval_start_time
+    print(f"Evaluation time: {eval_time:.2f} seconds")
+
     singular_values, norms = weight_stats(params)
 
     # Convert JAX arrays to Python lists for pickling
@@ -333,10 +380,13 @@ if __name__ == "__main__":
         "update": args.update,
         "epoch_losses": epoch_losses,
         "epoch_times": epoch_times,
+        "total_training_time": total_training_time,
+        "eval_time": eval_time,
         "test_acc": test_acc,
         "train_acc": train_acc,
         "singular_values": singular_values,
         "norms": norms,
+        "profiled": args.profile,
     }
 
     filename = f"update-{args.update}-lr-{args.lr}-wd-{args.wd}-seed-{args.seed}.pkl"
