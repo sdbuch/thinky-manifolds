@@ -1,0 +1,19 @@
+---
+title:
+author: Sam Buchanan
+format:
+    html:
+        code-fold: show
+---
+
+## Code imports
+
+```{python}
+import numpy as np
+import matplotlib.pyplot as plt
+import treescope
+import torch
+
+treescope.basic_interactive_setup(autovisualize_arrays=True)
+```
+
