@@ -5,11 +5,84 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "jax[tpu]>=0.7.2",
     "optax>=0.2.6",
     "pyright>=1.1.405",
     "pytest>=8.4.2",
     "treescope>=0.1.10",
     "tensorboard>=2.15.0",
     "tensorboard-plugin-profile>=2.15.0",
+    "jax>=0.7.2",
+    "matplotlib>=3.10.6",
+    "matplotlib-backend-sixel>=0.1.0",
+    "einops>=0.8.1",
+    "pynvim>=0.6.0",
+    "jupyter-client>=8.6.3",
+    "debugpy>=1.8.17",
+    "ipykernel>=6.30.1",
+    "requests>=2.32.5",
+    "websocket-client>=1.8.0",
 ]
+
+[project.optional-dependencies]
+cpu = [
+    "jax>=0.7.2",
+]
+tpu = [
+    "jax[tpu]>=0.7.2",
+]
+
+
+[tool.uv]
+config-settings = { editable_mode = 'compat' }
+conflicts = [
+    [
+      { extra = "cpu" },
+      { extra = "tpu" },
+    ],
+]
+
+[tool.ruff]
+# Basic configuration
+line-length = 100
+
+# Rule selection
+select = ["E", "W", "F"]  # Error, Warning, and Pyflakes rules
+
+# Rules to ignore
+ignore = [
+    "F401",  # Unused import
+    "F821",  # Undefined name
+    "E402",  # Module level import not at top of file
+    "F841",  # Local variable assigned but not used
+]
+
+[tool.ruff.lint]
+# Enable fix mode (equivalent to --fix flag)
+fixable = ["ALL"]
+unfixable = []
+
+# Additional lint configuration can go here
+# select and ignore can also be specified here instead of under [tool.ruff]
+
+[tool.ruff]
+# Basic configuration
+line-length = 100
+
+# Rule selection
+select = ["E", "W", "F"]  # Error, Warning, and Pyflakes rules
+
+# Rules to ignore
+ignore = [
+    "F401",  # Unused import
+    "F821",  # Undefined name
+    "E402",  # Module level import not at top of file
+    "F841",  # Local variable assigned but not used
+]
+
+[tool.ruff.lint]
+# Enable fix mode (equivalent to --fix flag)
+fixable = ["ALL"]
+unfixable = []
+
+# Additional lint configuration can go here
+# select and ignore can also be specified here instead of under [tool.ruff]
