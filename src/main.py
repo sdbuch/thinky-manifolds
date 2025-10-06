@@ -82,16 +82,17 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
 
     for epoch in range(epochs):
         for dataloader_idx in range(len(train_loader)):
-            prefix = f"e{epoch}_d{dataloader_idx}"
-            wandb.define_metric(f"{prefix}/inner_step")
-            wandb.define_metric(f"{prefix}/*", step_metric=f"{prefix}/inner_step")
+            for param, _ in model.named_parameters():
+                param.replace(".", "/")
+                prefix = f"{param}/e{epoch}_d{dataloader_idx}"
+                wandb.define_metric(f"{prefix}/inner_step")
+                wandb.define_metric(f"{prefix}/*", step_metric=f"{prefix}/inner_step")
     wandb.define_metric("outer_loop/*")
 
     for epoch in range(epochs):
         start_time = time.time()
         running_loss = 0.0
         for i, (images, labels) in enumerate(train_loader):
-            prefix = f"e{epoch}_d{i}"
 
             images = images.cuda()
             labels = labels.cuda()
@@ -106,7 +107,9 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
             lr = initial_lr * (1 - step / steps)
             with torch.no_grad():
                 if optimizer is None:
-                    for p in model.parameters():
+                    for n, p in model.named_parameters():
+                        n.replace(".", "/")
+                        prefix = f"{n}/e{epoch}_d{i}"
                         if update == manifold_muon:
                             new_p, dual_losses, effective_step_sizes = update(
                                 p,
