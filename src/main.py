@@ -101,24 +101,21 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
                             # Log manifold_muon metrics to wandb
                             # Create a separate plot for this outer loop step
                             # Each plot has dual ascent iteration on x-axis
-                            for dual_iter, dual_loss in enumerate(dual_losses):
-                                wandb.log(
-                                    {
-                                        f"outer_step_{step}/dual_loss": dual_loss,
-                                    },
-                                    step=dual_iter,
-                                )
+                            dual_loss_data = {
+                                f"outer_step_{step}/dual_loss_iter_{dual_iter}": dual_loss
+                                for dual_iter, dual_loss in enumerate(dual_losses)
+                            }
+                            wandb.log(dual_loss_data, commit=False)
+
                             # Log effective step sizes once (they're the same for all outer steps)
                             if step == 0:
-                                for dual_iter, eff_step in enumerate(
-                                    effective_step_sizes
-                                ):
-                                    wandb.log(
-                                        {
-                                            "effective_step_sizes/value": eff_step,
-                                        },
-                                        step=dual_iter,
+                                eff_step_data = {
+                                    f"effective_step_sizes/iter_{dual_iter}": eff_step
+                                    for dual_iter, eff_step in enumerate(
+                                        effective_step_sizes
                                     )
+                                }
+                                wandb.log(eff_step_data, commit=False)
                         else:
                             p.data = update(p, p.grad, eta=lr)
                 else:
