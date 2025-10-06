@@ -227,6 +227,12 @@ if __name__ == "__main__":
         default="cuda:0",
         help="Device to run on (e.g., cuda:0, cuda:1).",
     )
+    parser.add_argument(
+        "--admm_rho",
+        type=float,
+        default=None,
+        help="ADMM rho parameter for manifold_muon. If None, ADMM mode is disabled.",
+    )
     args = parser.parse_args()
 
     # determinism flags
@@ -245,7 +251,8 @@ if __name__ == "__main__":
 
     # Create descriptive run name
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    run_name = f"{args.update}-lr{args.lr}-{timestamp}"
+    update_name = f"{args.update}-admm" if args.admm_rho is not None else args.update
+    run_name = f"{update_name}-lr{args.lr}-{timestamp}"
 
     # Initialize wandb
     wandb.init(
@@ -270,25 +277,24 @@ if __name__ == "__main__":
                 "manifold_alpha": args.manifold_alpha,
                 "manifold_steps": args.manifold_steps,
                 "manifold_tol": args.manifold_tol,
+                "admm_rho": args.admm_rho,
             }
         )
-
-    # Define metric namespaces
-    # Outer loop metrics use global step
-    wandb.define_metric("outer_loop/step")
-    wandb.define_metric("outer_loop/*", step_metric="outer_loop/step")
 
     manifold_muon_params = (
         {
             "alpha": args.manifold_alpha,
             "steps": args.manifold_steps,
             "tol": args.manifold_tol,
+            "admm_rho": args.admm_rho,
         }
         if args.update == "manifold_muon"
         else None
     )
 
     print(f"Training with: {args.update}")
+    if args.admm_rho is not None:
+        print(f"Using ADMM mode with rho={args.admm_rho}")
     print(
         f"Epochs: {args.epochs} --- LR: {args.lr}",
         f"--- WD: {args.wd}" if args.update == "adam" else "",
