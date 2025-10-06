@@ -1,4 +1,5 @@
 import math
+import time
 import torch
 from msign import msign
 import wandb
@@ -39,6 +40,9 @@ def manifold_muon(W, G, eta=0.1, alpha=0.01, steps=100, tol=1e-6, outer_step=Non
 
         # Log to wandb if outer_step is provided
         if outer_step is not None:
+            print(
+                f"[DEBUG] Outer step {outer_step}, Inner step {step}, Dual loss: {dual_loss.item():.6f}"
+            )
             wandb.log(
                 {
                     f"outer_step_{outer_step}/inner_step": step,
@@ -46,6 +50,7 @@ def manifold_muon(W, G, eta=0.1, alpha=0.01, steps=100, tol=1e-6, outer_step=Non
                     f"outer_step_{outer_step}/effective_step_size": effective_step_size,
                 }
             )
+            time.sleep(1)
 
         # Update the candidate direction A
         A = msign(G + 2 * W @ Lambda)

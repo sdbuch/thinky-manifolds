@@ -116,11 +116,10 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
             # Log training loss and learning rate to wandb in outer_loop namespace
             wandb.log(
                 {
+                    "outer_loop/step": step,
                     "outer_loop/train_loss": loss.item(),
                     "outer_loop/learning_rate": lr,
-                    "outer_loop/step": step,
-                },
-                step=step,
+                }
             )
 
             step += 1
