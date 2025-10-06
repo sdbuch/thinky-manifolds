@@ -31,8 +31,29 @@ test_dataset = torchvision.datasets.CIFAR10(
     root="./data", train=False, transform=transform, download=True
 )
 
-train_loader = DataLoader(dataset=train_dataset, batch_size=1024, shuffle=True)
-test_loader = DataLoader(dataset=test_dataset, batch_size=1024, shuffle=False)
+
+def seed_worker(worker_id):
+    import numpy as np
+    import random
+
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
+def get_dataloaders(seed):
+    g = torch.Generator()
+    g.manual_seed(seed)
+
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=1024,
+        shuffle=True,
+        worker_init_fn=seed_worker,
+        generator=g,
+    )
+    test_loader = DataLoader(dataset=test_dataset, batch_size=1024, shuffle=False)
+    return train_loader, test_loader
 
 
 class MLP(nn.Module):
@@ -50,7 +71,16 @@ class MLP(nn.Module):
         return x
 
 
-def train(epochs, initial_lr, update, wd, manifold_muon_params=None, device="cuda:0"):
+def train(
+    epochs,
+    initial_lr,
+    update,
+    wd,
+    train_loader,
+    test_loader,
+    manifold_muon_params=None,
+    device="cuda:0",
+):
     model = MLP().to(device)
     criterion = nn.CrossEntropyLoss()
 
@@ -150,7 +180,7 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None, device="cud
     return model, epoch_losses, epoch_times
 
 
-def eval(model, device="cuda:0"):
+def eval(model, train_loader, test_loader, device="cuda:0"):
     # Test the model
     model.eval()
     with torch.no_grad():
@@ -304,15 +334,20 @@ if __name__ == "__main__":
         f"--- WD: {args.wd}" if args.update == "adam" else "",
     )
 
+    # Create dataloaders with seed for determinism
+    train_loader, test_loader = get_dataloaders(args.seed)
+
     model, epoch_losses, epoch_times = train(
         epochs=args.epochs,
         initial_lr=args.lr,
         update=update,
         wd=args.wd,
+        train_loader=train_loader,
+        test_loader=test_loader,
         manifold_muon_params=manifold_muon_params,
         device=args.device,
     )
-    test_acc, train_acc = eval(model, device=args.device)
+    test_acc, train_acc = eval(model, train_loader, test_loader, device=args.device)
     singular_values, norms = weight_stats(model)
 
     results = {
