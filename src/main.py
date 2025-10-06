@@ -50,8 +50,8 @@ class MLP(nn.Module):
         return x
 
 
-def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
-    model = MLP().cuda()
+def train(epochs, initial_lr, update, wd, manifold_muon_params=None, device="cuda:0"):
+    model = MLP().to(device)
     criterion = nn.CrossEntropyLoss()
 
     if update == AdamW:
@@ -93,9 +93,8 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
         start_time = time.time()
         running_loss = 0.0
         for i, (images, labels) in enumerate(train_loader):
-
-            images = images.cuda()
-            labels = labels.cuda()
+            images = images.to(device)
+            labels = labels.to(device)
 
             # Forward pass
             outputs = model(images)
@@ -151,7 +150,7 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
     return model, epoch_losses, epoch_times
 
 
-def eval(model):
+def eval(model, device="cuda:0"):
     # Test the model
     model.eval()
     with torch.no_grad():
@@ -160,8 +159,8 @@ def eval(model):
             correct = 0
             total = 0
             for images, labels in dataloader:
-                images = images.cuda()
-                labels = labels.cuda()
+                images = images.to(device)
+                labels = labels.to(device)
                 outputs = model(images)
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
@@ -221,6 +220,12 @@ if __name__ == "__main__":
         type=float,
         default=1e-6,
         help="Tolerance parameter for manifold_muon.",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda:0",
+        help="Device to run on (e.g., cuda:0, cuda:1).",
     )
     args = parser.parse_args()
 
@@ -295,8 +300,9 @@ if __name__ == "__main__":
         update=update,
         wd=args.wd,
         manifold_muon_params=manifold_muon_params,
+        device=args.device,
     )
-    test_acc, train_acc = eval(model)
+    test_acc, train_acc = eval(model, device=args.device)
     singular_values, norms = weight_stats(model)
 
     results = {
