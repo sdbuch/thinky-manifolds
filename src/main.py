@@ -71,7 +71,7 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None, device="cud
                     p.data,
                     torch.zeros_like(p.data),
                     eta=0,
-                    outer_step=None,
+                    prefix=None,
                     **manifold_muon_params,
                 )
             else:
@@ -113,7 +113,7 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None, device="cud
                                 p,
                                 p.grad,
                                 eta=lr,
-                                outer_step=prefix,
+                                prefix=prefix,
                                 **manifold_muon_params,
                             )
                             p.data = new_p
