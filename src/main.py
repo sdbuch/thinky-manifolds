@@ -9,10 +9,11 @@ import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
 import wandb
-from hyperspherical_descent import hyperspherical_descent
-from manifold_muon import manifold_muon
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
+
+from hyperspherical_descent import hyperspherical_descent
+from manifold_muon import manifold_muon
 
 transform = transforms.Compose(
     [
@@ -80,9 +81,18 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
     epoch_times = []
 
     for epoch in range(epochs):
+        for dataloader_idx in range(len(train_loader)):
+            prefix = f"e{epoch}_d{dataloader_idx}"
+            wandb.define_metric(f"{prefix}/inner_step")
+            wandb.define_metric(f"{prefix}/*", step_metric=f"{prefix}/inner_step")
+    wandb.define_metric("outer_loop/*")
+
+    for epoch in range(epochs):
         start_time = time.time()
         running_loss = 0.0
         for i, (images, labels) in enumerate(train_loader):
+            prefix = f"e{epoch}_d{i}"
+
             images = images.cuda()
             labels = labels.cuda()
 
@@ -102,7 +112,7 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
                                 p,
                                 p.grad,
                                 eta=lr,
-                                outer_step=step,
+                                outer_step=prefix,
                                 **manifold_muon_params,
                             )
                             p.data = new_p
@@ -116,10 +126,11 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
             # Log training loss and learning rate to wandb in outer_loop namespace
             wandb.log(
                 {
-                    "outer_loop/step": step,
+                    "outer_loop/step": i,
                     "outer_loop/train_loss": loss.item(),
                     "outer_loop/learning_rate": lr,
-                }
+                },
+                step=step,
             )
 
             step += 1
