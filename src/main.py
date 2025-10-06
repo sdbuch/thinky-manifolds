@@ -99,17 +99,26 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
                             )
                             p.data = new_p
                             # Log manifold_muon metrics to wandb
-                            # Log each dual ascent iteration separately
-                            for dual_iter, (dual_loss, eff_step) in enumerate(
-                                zip(dual_losses, effective_step_sizes)
-                            ):
+                            # Create a separate plot for this outer loop step
+                            # Each plot has dual ascent iteration on x-axis
+                            for dual_iter, dual_loss in enumerate(dual_losses):
                                 wandb.log(
                                     {
-                                        f"dual_loss_iter_{dual_iter}": dual_loss,
-                                        f"effective_step_size_iter_{dual_iter}": eff_step,
+                                        f"outer_step_{step}/dual_loss": dual_loss,
                                     },
-                                    step=step,
+                                    step=dual_iter,
                                 )
+                            # Log effective step sizes once (they're the same for all outer steps)
+                            if step == 0:
+                                for dual_iter, eff_step in enumerate(
+                                    effective_step_sizes
+                                ):
+                                    wandb.log(
+                                        {
+                                            "effective_step_sizes/value": eff_step,
+                                        },
+                                        step=dual_iter,
+                                    )
                         else:
                             p.data = update(p, p.grad, eta=lr)
                 else:
