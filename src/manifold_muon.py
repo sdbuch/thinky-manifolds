@@ -32,9 +32,9 @@ def manifold_muon(W, G, eta=0.1, alpha=0.01, steps=100, tol=1e-6, outer_step=Non
 
         # Log to wandb if outer_step is provided
         if outer_step is not None:
-            print(
-                f"[DEBUG] Outer step {outer_step}, Inner step {step}, Dual loss: {dual_loss.item():.6f}"
-            )
+            # print(
+            #     f"[DEBUG] Outer step {outer_step}, Inner step {step}, Dual loss: {dual_loss.item():.6f}"
+            # )
             wandb.log(
                 {
                     f"{outer_step}/inner_step": step,
