@@ -83,7 +83,6 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
     for epoch in range(epochs):
         for dataloader_idx in range(len(train_loader)):
             for param, _ in model.named_parameters():
-                param.replace(".", "/")
                 prefix = f"{param}/e{epoch}_d{dataloader_idx}"
                 wandb.define_metric(f"{prefix}/inner_step")
                 wandb.define_metric(f"{prefix}/*", step_metric=f"{prefix}/inner_step")
@@ -108,7 +107,6 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
             with torch.no_grad():
                 if optimizer is None:
                     for n, p in model.named_parameters():
-                        n.replace(".", "/")
                         prefix = f"{n}/e{epoch}_d{i}"
                         if update == manifold_muon:
                             new_p, dual_losses, effective_step_sizes = update(
@@ -129,7 +127,6 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
             # Log training loss and learning rate to wandb in outer_loop namespace
             wandb.log(
                 {
-                    "outer_loop/step": i,
                     "outer_loop/train_loss": loss.item(),
                     "outer_loop/learning_rate": lr,
                 },
