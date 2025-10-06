@@ -28,7 +28,7 @@ def dual_ascent_update_admm(W, G, Lambda, Omega, D, rho):
     # Omega_upd = U @ torch.diag(s_upd) @ VT
     # Clip with msign (happy face?)
     eye = torch.eye(B.shape[1], device=B.device, dtype=B.dtype)
-    P_pos = 0.5 * (eye + msign(B.mT @ B - 1 / rho * eye))
+    P_pos = 0.5 * (eye + msign(B.mT @ B - 1 / rho**2 * eye))
     Omega_upd = (B - 1/rho * msign(B)) @ P_pos
     # Update for D (dual ascent)
     D_upd = D + rho * (Omega_upd - 2 * W @ Lambda_upd - G)
