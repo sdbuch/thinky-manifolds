@@ -2,6 +2,7 @@ import argparse
 import os
 import pickle
 import time
+from datetime import datetime
 
 import torch
 import torch.nn as nn
@@ -98,13 +99,17 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
                             )
                             p.data = new_p
                             # Log manifold_muon metrics to wandb
-                            wandb.log(
-                                {
-                                    "dual_losses": dual_losses,
-                                    "effective_step_sizes": effective_step_sizes,
-                                },
-                                step=step,
-                            )
+                            # Log each dual ascent iteration separately
+                            for dual_iter, (dual_loss, eff_step) in enumerate(
+                                zip(dual_losses, effective_step_sizes)
+                            ):
+                                wandb.log(
+                                    {
+                                        f"dual_loss_iter_{dual_iter}": dual_loss,
+                                        f"effective_step_size_iter_{dual_iter}": eff_step,
+                                    },
+                                    step=step,
+                                )
                         else:
                             p.data = update(p, p.grad, eta=lr)
                 else:
@@ -225,9 +230,14 @@ if __name__ == "__main__":
 
     update = update_rules[args.update]
 
+    # Create descriptive run name
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_name = f"{args.update}-lr{args.lr}-{timestamp}"
+
     # Initialize wandb
     wandb.init(
         project="thinky-manifolds",
+        name=run_name,
         config={
             "epochs": args.epochs,
             "initial_lr": args.lr,
