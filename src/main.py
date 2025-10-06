@@ -86,7 +86,8 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
                 prefix = f"{param}/e{epoch}_d{dataloader_idx}"
                 wandb.define_metric(f"{prefix}/inner_step")
                 wandb.define_metric(f"{prefix}/*", step_metric=f"{prefix}/inner_step")
-    wandb.define_metric("outer_loop/*")
+    wandb.define_metric("outer_loop/global_step")
+    wandb.define_metric("outer_loop/*", step_metric="outer_loop/global_step")
 
     for epoch in range(epochs):
         start_time = time.time()
@@ -127,10 +128,10 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
             # Log training loss and learning rate to wandb in outer_loop namespace
             wandb.log(
                 {
+                    "outer_loop/global_step", step,
                     "outer_loop/train_loss": loss.item(),
                     "outer_loop/learning_rate": lr,
-                },
-                step=step,
+                }
             )
 
             step += 1
