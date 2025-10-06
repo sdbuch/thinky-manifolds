@@ -22,9 +22,14 @@ def dual_ascent_update_admm(W, G, Lambda, Omega, D, rho):
     Lambda_upd = 0.25 * (P + P.mT)
     # Update for Omega (singular value thresholding)
     B = G + 2 * W @ Lambda_upd - 1 / rho * D
-    U, s, VT = torch.linalg.svd(B, full_matrices=False)
-    s_upd = torch.clamp(s - 1 / rho, min=0.0)
-    Omega_upd = U @ torch.diag(s_upd) @ VT
+    # Clip with SVD (sad face)
+    # U, s, VT = torch.linalg.svd(B, full_matrices=False)
+    # s_upd = torch.clamp(s - 1 / rho, min=0.0)
+    # Omega_upd = U @ torch.diag(s_upd) @ VT
+    # Clip with msign (happy face?)
+    eye = torch.eye(B.shape[1], device=B.device, dtype=B.dtype)
+    P_pos = 0.5 * (eye + msign(B.mT @ B - 1 / rho * eye))
+    Omega_upd = (B - 1/rho * msign(B)) @ P_pos
     # Update for D (dual ascent)
     D_upd = D + rho * (Omega_upd - 2 * W @ Lambda_upd - G)
     return Lambda_upd, Omega_upd, D_upd

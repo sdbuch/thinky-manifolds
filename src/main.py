@@ -251,7 +251,11 @@ if __name__ == "__main__":
 
     # Create descriptive run name
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    update_name = f"{args.update}-admm" if args.admm_rho is not None else args.update
+    update_name = (
+        f"{args.update}-admm-rho{args.admm_rho}"
+        if args.admm_rho is not None
+        else args.update
+    )
     run_name = f"{update_name}-lr{args.lr}-{timestamp}"
 
     # Initialize wandb
