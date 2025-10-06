@@ -7,18 +7,27 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
+import wandb
 from hyperspherical_descent import hyperspherical_descent
 from manifold_muon import manifold_muon
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.49139968, 0.48215827, 0.44653124), (0.24703233, 0.24348505, 0.26158768))
-])
+transform = transforms.Compose(
+    [
+        transforms.ToTensor(),
+        transforms.Normalize(
+            (0.49139968, 0.48215827, 0.44653124), (0.24703233, 0.24348505, 0.26158768)
+        ),
+    ]
+)
 
-train_dataset = torchvision.datasets.CIFAR10(root="./data", train=True, transform=transform, download=True)
-test_dataset = torchvision.datasets.CIFAR10(root="./data", train=False, transform=transform, download=True)
+train_dataset = torchvision.datasets.CIFAR10(
+    root="./data", train=True, transform=transform, download=True
+)
+test_dataset = torchvision.datasets.CIFAR10(
+    root="./data", train=False, transform=transform, download=True
+)
 
 train_loader = DataLoader(dataset=train_dataset, batch_size=1024, shuffle=True)
 test_loader = DataLoader(dataset=test_dataset, batch_size=1024, shuffle=False)
@@ -39,7 +48,7 @@ class MLP(nn.Module):
         return x
 
 
-def train(epochs, initial_lr, update, wd):
+def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
     model = MLP().cuda()
     criterion = nn.CrossEntropyLoss()
 
@@ -55,7 +64,12 @@ def train(epochs, initial_lr, update, wd):
     if optimizer is None:
         # Project the weights to the manifold
         for p in model.parameters():
-            p.data = update(p.data, torch.zeros_like(p.data), eta=0)
+            if update == manifold_muon:
+                p.data, _, _ = update(
+                    p.data, torch.zeros_like(p.data), eta=0, **manifold_muon_params
+                )
+            else:
+                p.data = update(p.data, torch.zeros_like(p.data), eta=0)
 
     epoch_losses = []
     epoch_times = []
@@ -78,23 +92,49 @@ def train(epochs, initial_lr, update, wd):
             with torch.no_grad():
                 if optimizer is None:
                     for p in model.parameters():
-                        p.data = update(p, p.grad, eta=lr)
+                        if update == manifold_muon:
+                            new_p, dual_losses, effective_step_sizes = update(
+                                p, p.grad, eta=lr, **manifold_muon_params
+                            )
+                            p.data = new_p
+                            # Log manifold_muon metrics to wandb
+                            wandb.log(
+                                {
+                                    "dual_losses": dual_losses,
+                                    "effective_step_sizes": effective_step_sizes,
+                                },
+                                step=step,
+                            )
+                        else:
+                            p.data = update(p, p.grad, eta=lr)
                 else:
                     for param_group in optimizer.param_groups:
                         param_group["lr"] = lr
                     optimizer.step()
+
+            # Log training loss and learning rate to wandb
+            wandb.log(
+                {
+                    "train_loss": loss.item(),
+                    "learning_rate": lr,
+                },
+                step=step,
+            )
+
             step += 1
 
             running_loss += loss.item()
-            if (i+1) % 100 == 0:
-                print(f"Epoch [{epoch+1}/{epochs}], Step [{i+1}/{len(train_loader)}], Loss: {loss.item():.4f}")
+            if (i + 1) % 100 == 0:
+                print(
+                    f"Epoch [{epoch + 1}/{epochs}], Step [{i + 1}/{len(train_loader)}], Loss: {loss.item():.4f}"
+                )
 
         end_time = time.time()
         epoch_loss = running_loss / len(train_loader)
         epoch_time = end_time - start_time
         epoch_losses.append(epoch_loss)
         epoch_times.append(epoch_time)
-        print(f"Epoch {epoch+1}, Loss: {epoch_loss}, Time: {epoch_time:.4f} seconds")
+        print(f"Epoch {epoch + 1}, Loss: {epoch_loss}, Time: {epoch_time:.4f} seconds")
     return model, epoch_losses, epoch_times
 
 
@@ -115,15 +155,20 @@ def eval(model):
                 correct += (predicted == labels).sum().item()
             accs.append(100 * correct / total)
 
-    print(f"Accuracy of the network on the {len(test_loader.dataset)} test images: {accs[0]} %")
-    print(f"Accuracy of the network on the {len(train_loader.dataset)} train images: {accs[1]} %")
+    print(
+        f"Accuracy of the network on the {len(test_loader.dataset)} test images: {accs[0]} %"
+    )
+    print(
+        f"Accuracy of the network on the {len(train_loader.dataset)} train images: {accs[1]} %"
+    )
     return accs
+
 
 def weight_stats(model):
     singular_values = []
     norms = []
     for p in model.parameters():
-        u,s,v = torch.svd(p)
+        u, s, v = torch.svd(p)
         singular_values.append(s)
         norms.append(p.norm())
     return singular_values, norms
@@ -131,11 +176,39 @@ def weight_stats(model):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a model on CIFAR-10.")
-    parser.add_argument("--epochs", type=int, default=5, help="Number of epochs to train for.")
+    parser.add_argument(
+        "--epochs", type=int, default=5, help="Number of epochs to train for."
+    )
     parser.add_argument("--lr", type=float, default=0.1, help="Initial learning rate.")
-    parser.add_argument("--update", type=str, default="manifold_muon", choices=["manifold_muon", "hyperspherical_descent", "adam"], help="Update rule to use.")
-    parser.add_argument("--seed", type=int, default=42, help="Seed for the random number generator.")
+    parser.add_argument(
+        "--update",
+        type=str,
+        default="manifold_muon",
+        choices=["manifold_muon", "hyperspherical_descent", "adam"],
+        help="Update rule to use.",
+    )
+    parser.add_argument(
+        "--seed", type=int, default=42, help="Seed for the random number generator."
+    )
     parser.add_argument("--wd", type=float, default=0.0, help="Weight decay for AdamW.")
+    parser.add_argument(
+        "--manifold_alpha",
+        type=float,
+        default=0.01,
+        help="Alpha parameter for manifold_muon.",
+    )
+    parser.add_argument(
+        "--manifold_steps",
+        type=int,
+        default=100,
+        help="Steps parameter for manifold_muon.",
+    )
+    parser.add_argument(
+        "--manifold_tol",
+        type=float,
+        default=1e-6,
+        help="Tolerance parameter for manifold_muon.",
+    )
     args = parser.parse_args()
 
     # determinism flags
@@ -147,19 +220,58 @@ if __name__ == "__main__":
     update_rules = {
         "manifold_muon": manifold_muon,
         "hyperspherical_descent": hyperspherical_descent,
-        "adam": AdamW
+        "adam": AdamW,
     }
 
     update = update_rules[args.update]
 
+    # Initialize wandb
+    wandb.init(
+        project="thinky-manifolds",
+        config={
+            "epochs": args.epochs,
+            "initial_lr": args.lr,
+            "update_rule": args.update,
+            "seed": args.seed,
+            "weight_decay": args.wd,
+            "model_architecture": "MLP",
+            "model_layers": [32 * 32 * 3, 128, 64, 10],
+            "batch_size": 1024,
+        },
+    )
+
+    # Add manifold_muon specific config if using that optimizer
+    if args.update == "manifold_muon":
+        wandb.config.update(
+            {
+                "manifold_alpha": args.manifold_alpha,
+                "manifold_steps": args.manifold_steps,
+                "manifold_tol": args.manifold_tol,
+            }
+        )
+
+    manifold_muon_params = (
+        {
+            "alpha": args.manifold_alpha,
+            "steps": args.manifold_steps,
+            "tol": args.manifold_tol,
+        }
+        if args.update == "manifold_muon"
+        else None
+    )
+
     print(f"Training with: {args.update}")
-    print(f"Epochs: {args.epochs} --- LR: {args.lr}", f"--- WD: {args.wd}" if args.update == "adam" else "")
+    print(
+        f"Epochs: {args.epochs} --- LR: {args.lr}",
+        f"--- WD: {args.wd}" if args.update == "adam" else "",
+    )
 
     model, epoch_losses, epoch_times = train(
         epochs=args.epochs,
         initial_lr=args.lr,
         update=update,
-        wd=args.wd
+        wd=args.wd,
+        manifold_muon_params=manifold_muon_params,
     )
     test_acc, train_acc = eval(model)
     singular_values, norms = weight_stats(model)
@@ -175,13 +287,16 @@ if __name__ == "__main__":
         "test_acc": test_acc,
         "train_acc": train_acc,
         "singular_values": singular_values,
-        "norms": norms
+        "norms": norms,
     }
 
     filename = f"update-{args.update}-lr-{args.lr}-wd-{args.wd}-seed-{args.seed}.pkl"
     os.makedirs("results", exist_ok=True)
 
-    print(f"Saving results to {os.path.join("results", filename)}")
+    print(f"Saving results to {os.path.join('results', filename)}")
     with open(os.path.join("results", filename), "wb") as f:
         pickle.dump(results, f)
-    print(f"Results saved to {os.path.join("results", filename)}")
+    print(f"Results saved to {os.path.join('results', filename)}")
+
+    # Finish wandb run
+    wandb.finish()

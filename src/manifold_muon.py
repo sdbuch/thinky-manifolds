@@ -2,6 +2,7 @@ import math
 import torch
 from msign import msign
 
+
 @torch.no_grad()
 def manifold_muon(W, G, eta=0.1, alpha=0.01, steps=100, tol=1e-6):
     # Ensure that W and G are both tall matrices
@@ -11,8 +12,22 @@ def manifold_muon(W, G, eta=0.1, alpha=0.01, steps=100, tol=1e-6):
         G = G.T
     # Initialize the dual variable
     Lambda = -0.25 * (W.T @ G + G.T @ W)
+
+    # Track losses and effective step sizes
+    dual_losses = []
+    effective_step_sizes = []
+
     # Ascend on the dual problem to find the update direction A
     for step in range(steps):
+        # Compute and log the dual ascent loss
+        loss_matrix = G + 2 * W @ (Lambda + Lambda.mT)
+        dual_loss = torch.linalg.svdvals(loss_matrix).sum()
+        dual_losses.append(dual_loss.item())
+
+        # Compute and log the effective step size
+        effective_step_size = (1 - step / steps) * alpha
+        effective_step_sizes.append(effective_step_size)
+
         # Update the candidate direction A
         A = msign(G + 2 * W @ Lambda)
         # Measure deviation of A from the tangent space:
@@ -27,4 +42,5 @@ def manifold_muon(W, G, eta=0.1, alpha=0.01, steps=100, tol=1e-6):
     # Retract to the manifold
     new_W = msign(new_W)
     # Restore the shape of the solution and return
-    return new_W.T if should_tranpose else new_W
+    result = new_W.T if should_tranpose else new_W
+    return result, dual_losses, effective_step_sizes
