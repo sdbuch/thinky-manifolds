@@ -18,6 +18,14 @@ def manifold_muon(W, G, eta=0.1, alpha=0.01, steps=100, tol=1e-6, outer_step=Non
     dual_losses = []
     effective_step_sizes = []
 
+    # Define custom step metric for this outer loop iteration
+    if outer_step is not None:
+        wandb.define_metric(f"outer_step_{outer_step}/inner_step")
+        wandb.define_metric(
+            f"outer_step_{outer_step}/*",
+            step_metric=f"outer_step_{outer_step}/inner_step",
+        )
+
     # Ascend on the dual problem to find the update direction A
     for step in range(steps):
         # Compute and log the dual ascent loss
@@ -33,10 +41,10 @@ def manifold_muon(W, G, eta=0.1, alpha=0.01, steps=100, tol=1e-6, outer_step=Non
         if outer_step is not None:
             wandb.log(
                 {
+                    f"outer_step_{outer_step}/inner_step": step,
                     f"outer_step_{outer_step}/dual_loss": dual_loss.item(),
                     f"outer_step_{outer_step}/effective_step_size": effective_step_size,
-                },
-                step=step,
+                }
             )
 
         # Update the candidate direction A
