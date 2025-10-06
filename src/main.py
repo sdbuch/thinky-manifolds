@@ -67,7 +67,11 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
         for p in model.parameters():
             if update == manifold_muon:
                 p.data, _, _ = update(
-                    p.data, torch.zeros_like(p.data), eta=0, **manifold_muon_params
+                    p.data,
+                    torch.zeros_like(p.data),
+                    eta=0,
+                    outer_step=None,
+                    **manifold_muon_params,
                 )
             else:
                 p.data = update(p.data, torch.zeros_like(p.data), eta=0)
@@ -95,35 +99,13 @@ def train(epochs, initial_lr, update, wd, manifold_muon_params=None):
                     for p in model.parameters():
                         if update == manifold_muon:
                             new_p, dual_losses, effective_step_sizes = update(
-                                p, p.grad, eta=lr, **manifold_muon_params
+                                p,
+                                p.grad,
+                                eta=lr,
+                                outer_step=step,
+                                **manifold_muon_params,
                             )
                             p.data = new_p
-                            # Log manifold_muon metrics to wandb
-                            # Create a table for this outer step with dual iterations and losses
-                            dual_loss_table = wandb.Table(
-                                columns=["dual_iter", "dual_loss"],
-                                data=[[i, loss] for i, loss in enumerate(dual_losses)],
-                            )
-                            wandb.log(
-                                {f"outer_step_{step}/dual_losses": dual_loss_table},
-                                commit=False,
-                            )
-
-                            # Log effective step sizes once (they're the same for all outer steps)
-                            if step == 0:
-                                eff_step_table = wandb.Table(
-                                    columns=["dual_iter", "effective_step_size"],
-                                    data=[
-                                        [i, eff_step]
-                                        for i, eff_step in enumerate(
-                                            effective_step_sizes
-                                        )
-                                    ],
-                                )
-                                wandb.log(
-                                    {"effective_step_sizes/schedule": eff_step_table},
-                                    commit=False,
-                                )
                         else:
                             p.data = update(p, p.grad, eta=lr)
                 else:

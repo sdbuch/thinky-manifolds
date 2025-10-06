@@ -1,10 +1,11 @@
 import math
 import torch
 from msign import msign
+import wandb
 
 
 @torch.no_grad()
-def manifold_muon(W, G, eta=0.1, alpha=0.01, steps=100, tol=1e-6):
+def manifold_muon(W, G, eta=0.1, alpha=0.01, steps=100, tol=1e-6, outer_step=None):
     # Ensure that W and G are both tall matrices
     should_tranpose = W.shape[0] < W.shape[1]
     if should_tranpose:
@@ -27,6 +28,16 @@ def manifold_muon(W, G, eta=0.1, alpha=0.01, steps=100, tol=1e-6):
         # Compute and log the effective step size
         effective_step_size = (1 - step / steps) * alpha
         effective_step_sizes.append(effective_step_size)
+
+        # Log to wandb if outer_step is provided
+        if outer_step is not None:
+            wandb.log(
+                {
+                    f"outer_step_{outer_step}/dual_loss": dual_loss.item(),
+                    f"outer_step_{outer_step}/effective_step_size": effective_step_size,
+                },
+                step=step,
+            )
 
         # Update the candidate direction A
         A = msign(G + 2 * W @ Lambda)
