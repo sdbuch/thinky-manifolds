@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Sweep parameters
-MANIFOLD_STEPS=(5 10 20 50 100)
+MANIFOLD_STEPS=(1 5 10 25 50 100)
 ADMM_RHO=(None 2.0 4.0 8.0 16.0)
 
 # Number of GPUs available
