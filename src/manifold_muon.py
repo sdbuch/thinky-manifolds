@@ -127,4 +127,4 @@ def manifold_muon(
     new_W = msign(new_W)
     # Restore the shape of the solution and return
     result = new_W.T if should_tranpose else new_W
-    return result, dual_losses, effective_step_sizes, feasibility_residuals
+    return result

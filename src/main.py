@@ -33,8 +33,9 @@ test_dataset = torchvision.datasets.CIFAR10(
 
 
 def seed_worker(worker_id):
-    import numpy as np
     import random
+
+    import numpy as np
 
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
@@ -101,7 +102,7 @@ def train(
         # Project the weights to the manifold
         for p in model.parameters():
             if update == manifold_muon:
-                p.data, _, _ = update(
+                p.data = update(
                     p.data,
                     torch.zeros_like(p.data),
                     eta=0,
@@ -143,7 +144,7 @@ def train(
                     for n, p in model.named_parameters():
                         prefix = f"{n}/e{epoch:0{num_epoch_digits}d}_d{i:0{num_dataloader_digits}d}"
                         if update == manifold_muon:
-                            new_p, dual_losses, effective_step_sizes = update(
+                            new_p = update(
                                 p,
                                 p.grad,
                                 eta=lr,
