@@ -119,9 +119,7 @@ def manifold_muon(
                     }
                 )
 
-    if admm_rho is not None:
-        # Calculate A for ADMM
-        A = msign(G + 2 * W @ Lambda)
+    A = msign(G + 2 * W @ Lambda)
 
     # Descend on the primal problem
     new_W = W - eta * A
