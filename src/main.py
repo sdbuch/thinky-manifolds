@@ -137,6 +137,18 @@ def train(
             # Backward and optimize
             model.zero_grad()
             loss.backward()
+
+            # Save parameters and gradients after Epoch 0, Batch 1
+            if epoch == 0 and i == 1:
+                import numpy as np
+                params_and_grads = {}
+                for n, p in model.named_parameters():
+                    params_and_grads[f"{n}_param"] = p.data.cpu().numpy()
+                    params_and_grads[f"{n}_grad"] = p.grad.cpu().numpy()
+                os.makedirs("debug", exist_ok=True)
+                np.savez("debug/epoch0_batch1_params_grads.npz", **params_and_grads)
+                print("Saved parameters and gradients to debug/epoch0_batch1_params_grads.npz")
+
             lr = initial_lr * (1 - step / steps)
             with torch.no_grad():
                 if optimizer is None:
