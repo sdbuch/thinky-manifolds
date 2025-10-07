@@ -54,10 +54,10 @@ def manifold_muon(
         Lambda = -0.25 * (W.T @ G + G.T @ W)
     else:
         # Initializations for ADMM
-        Lambda = -0.25 * (W.T @ G + G.T @ W)
-        Omega = G + 2 * W @ Lambda
-        # Lambda = torch.zeros_like(W.T @ G)
-        # Omega = G
+        # Lambda = -0.25 * (W.T @ G + G.T @ W)
+        # Omega = G + 2 * W @ Lambda
+        Lambda = torch.zeros_like(W.T @ G)
+        Omega = G
         D = torch.zeros_like(Omega)
 
     # Track losses and effective step sizes
