@@ -12,6 +12,12 @@ parser.add_argument(
     default=None,
     help='Filter runs after this datetime (format: YYYYMMDD-HHMMSS, e.g., "20251006-143000")',
 )
+parser.add_argument(
+    "--before",
+    type=str,
+    default=None,
+    help='Filter runs before this datetime (format: YYYYMMDD-HHMMSS, e.g., "20251006-143000")',
+)
 args = parser.parse_args()
 
 # Initialize wandb API
@@ -25,6 +31,15 @@ if args.after:
     # Convert to ISO format for wandb API
     filters["created_at"] = {"$gt": dt.isoformat()}
     print(f"Filtering runs created after: {dt}")
+if args.before:
+    # Parse the datetime string (format: YYYYMMDD-HHMMSS)
+    dt = datetime.strptime(args.before, "%Y%m%d-%H%M%S")
+    # Convert to ISO format for wandb API
+    if "created_at" in filters:
+        filters["created_at"]["$lt"] = dt.isoformat()
+    else:
+        filters["created_at"] = {"$lt": dt.isoformat()}
+    print(f"Filtering runs created before: {dt}")
 
 # Get filtered runs from the project
 runs = api.runs("thinky-manifolds", filters=filters if filters else None)
