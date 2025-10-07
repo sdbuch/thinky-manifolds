@@ -29,7 +29,7 @@ def dual_ascent_update_admm(W, G, Lambda, Omega, D, rho):
     # Clip with msign (happy face?)
     eye = torch.eye(B.shape[1], device=B.device, dtype=B.dtype)
     P_pos = 0.5 * (eye + msign(B.mT @ B - 1 / rho**2 * eye))
-    Omega_upd = (B - 1/rho * msign(B)) @ P_pos
+    Omega_upd = (B - 1 / rho * msign(B)) @ P_pos
     # Update for D (dual ascent)
     D_upd = D + rho * (Omega_upd - 2 * W @ Lambda_upd - G)
     return Lambda_upd, Omega_upd, D_upd
@@ -61,6 +61,7 @@ def manifold_muon(
     # Track losses and effective step sizes
     dual_losses = []
     effective_step_sizes = []
+    feasibility_residuals = []
 
     # Ascend on the dual problem to find the update direction A
     for step in range(steps):
@@ -102,6 +103,20 @@ def manifold_muon(
             # Do ADMM
             Lambda, Omega, D = dual_ascent_update_admm(W, G, Lambda, Omega, D, admm_rho)
 
+            # Check feasibility: G + 2 * W @ Lambda - Omega = 0
+            feasibility_residual = G + 2 * W @ Lambda - Omega
+            feasibility_norm = torch.norm(feasibility_residual) / math.sqrt(
+                feasibility_residual.numel()
+            )
+            feasibility_residuals.append(feasibility_norm.item())
+
+            if prefix is not None:
+                wandb.log(
+                    {
+                        f"{prefix}/feasibility_residual": feasibility_norm.item(),
+                    }
+                )
+
     if admm_rho is not None:
         # Calculate A for ADMM
         A = msign(G + 2 * W @ Lambda)
@@ -112,4 +127,4 @@ def manifold_muon(
     new_W = msign(new_W)
     # Restore the shape of the solution and return
     result = new_W.T if should_tranpose else new_W
-    return result, dual_losses, effective_step_sizes
+    return result, dual_losses, effective_step_sizes, feasibility_residuals
