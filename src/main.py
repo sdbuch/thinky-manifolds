@@ -93,6 +93,10 @@ def train(
     steps = epochs * len(train_loader)
     step = 0
 
+    # Calculate number of digits needed for zero-padding
+    num_epoch_digits = len(str(epochs - 1))
+    num_dataloader_digits = len(str(len(train_loader) - 1))
+
     if optimizer is None:
         # Project the weights to the manifold
         for p in model.parameters():
@@ -113,7 +117,7 @@ def train(
     for epoch in range(epochs):
         for dataloader_idx in range(len(train_loader)):
             for param, _ in model.named_parameters():
-                prefix = f"{param}/e{epoch}_d{dataloader_idx}"
+                prefix = f"{param}/e{epoch:0{num_epoch_digits}d}_d{dataloader_idx:0{num_dataloader_digits}d}"
                 wandb.define_metric(f"{prefix}/inner_step")
                 wandb.define_metric(f"{prefix}/*", step_metric=f"{prefix}/inner_step")
     wandb.define_metric("outer_loop/global_step")
@@ -137,7 +141,7 @@ def train(
             with torch.no_grad():
                 if optimizer is None:
                     for n, p in model.named_parameters():
-                        prefix = f"{n}/e{epoch}_d{i}"
+                        prefix = f"{n}/e{epoch:0{num_epoch_digits}d}_d{i:0{num_dataloader_digits}d}"
                         if update == manifold_muon:
                             new_p, dual_losses, effective_step_sizes = update(
                                 p,
