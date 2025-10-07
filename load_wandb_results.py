@@ -32,18 +32,54 @@ runs = api.runs("thinky-manifolds", filters=filters if filters else None)
 # Collect data from all runs
 data = []
 for run in runs:
+    # Debug: print first run's structure
+    if len(data) == 0:
+        print(f"\nDebug info for first run:")
+        print(f"Run state: {run.state}")
+        print(f"Run ID: {run.id}")
+        print(f"Config type: {type(run.config)}")
+        print(f"Summary type: {type(run.summary)}")
+        # Try to access the run's full data
+        try:
+            full_run = api.run(f"thinky-manifolds/{run.id}")
+            print(f"Full run config type: {type(full_run.config)}")
+            print(f"Full run summary type: {type(full_run.summary)}")
+            if isinstance(full_run.config, dict):
+                print(f"Config keys: {list(full_run.config.keys())[:5]}")
+            if hasattr(full_run.summary, "_json_dict") and isinstance(
+                full_run.summary._json_dict, dict
+            ):
+                print(f"Summary keys: {list(full_run.summary._json_dict.keys())[:5]}")
+        except Exception as e:
+            print(f"Error accessing full run: {e}")
+        print()
+
+    # Try to get the full run data
+    try:
+        full_run = api.run(f"thinky-manifolds/{run.id}")
+        run_config = full_run.config if isinstance(full_run.config, dict) else {}
+        if hasattr(full_run.summary, "_json_dict") and isinstance(
+            full_run.summary._json_dict, dict
+        ):
+            summary = full_run.summary._json_dict
+        else:
+            summary = {}
+    except Exception:
+        run_config = {}
+        summary = {}
+
     # Get config parameters
     config = {
         "run_name": run.name,
-        "manifold_steps": run.config.get("manifold_steps"),
-        "admm_rho": run.config.get("admm_rho"),
-        "lr": run.config.get("initial_lr"),
-        "epochs": run.config.get("epochs"),
-        "update_rule": run.config.get("update_rule"),
+        "state": run.state,
+        "manifold_steps": run_config.get("manifold_steps"),
+        "admm_rho": run_config.get("admm_rho"),
+        "lr": run_config.get("initial_lr"),
+        "epochs": run_config.get("epochs"),
+        "update_rule": run_config.get("update_rule"),
     }
 
     # Get final metrics
-    summary = run.summary._json_dict
     config.update(
         {
             "test_accuracy": summary.get("final/test_accuracy"),
