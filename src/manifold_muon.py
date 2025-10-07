@@ -96,6 +96,7 @@ def manifold_muon(
             if prefix is not None:
                 wandb.log(
                     {
+                        f"{prefix}/inner_step": step,
                         f"{prefix}/effective_step_size": effective_step_size,
                     }
                 )
@@ -113,6 +114,7 @@ def manifold_muon(
             if prefix is not None:
                 wandb.log(
                     {
+                        f"{prefix}/inner_step": step,
                         f"{prefix}/feasibility_residual": feasibility_norm.item(),
                     }
                 )
