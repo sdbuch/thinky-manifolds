@@ -188,25 +188,44 @@ def train(
 def eval(model, train_loader, test_loader, device="cuda:0"):
     # Test the model
     model.eval()
+    criterion = nn.CrossEntropyLoss()
     with torch.no_grad():
         accs = []
+        losses = []
         for dataloader in [test_loader, train_loader]:
             correct = 0
             total = 0
+            running_loss = 0.0
             for images, labels in dataloader:
                 images = images.to(device)
                 labels = labels.to(device)
                 outputs = model(images)
+                loss = criterion(outputs, labels)
+                running_loss += loss.item()
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
             accs.append(100 * correct / total)
+            losses.append(running_loss / len(dataloader))
+
+    test_acc, train_acc = accs[0], accs[1]
+    test_loss, train_loss = losses[0], losses[1]
+
+    # Log final metrics to wandb
+    wandb.log(
+        {
+            "final/test_accuracy": test_acc,
+            "final/train_accuracy": train_acc,
+            "final/test_loss": test_loss,
+            "final/train_loss": train_loss,
+        }
+    )
 
     print(
-        f"Accuracy of the network on the {len(test_loader.dataset)} test images: {accs[0]} %"
+        f"Accuracy of the network on the {len(test_loader.dataset)} test images: {test_acc} %"
     )
     print(
-        f"Accuracy of the network on the {len(train_loader.dataset)} train images: {accs[1]} %"
+        f"Accuracy of the network on the {len(train_loader.dataset)} train images: {train_acc} %"
     )
     return accs
 
