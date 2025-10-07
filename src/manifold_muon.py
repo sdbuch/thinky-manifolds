@@ -54,10 +54,8 @@ def manifold_muon(
         Lambda = -0.25 * (W.T @ G + G.T @ W)
     else:
         # Initializations for ADMM
-        # Lambda = -0.25 * (W.T @ G + G.T @ W)
-        # Omega = G + 2 * W @ Lambda
-        Lambda = torch.zeros_like(W.T @ G)
-        Omega = G
+        Lambda = -0.25 * (W.T @ G + G.T @ W)
+        Omega = G + 2 * W @ Lambda
         D = torch.zeros_like(Omega)
 
     # Track losses and effective step sizes
@@ -81,7 +79,6 @@ def manifold_muon(
                 {
                     f"{prefix}/inner_step": step,
                     f"{prefix}/dual_loss": dual_loss.item(),
-                    f"{prefix}/effective_step_size": effective_step_size,
                 }
             )
 
@@ -94,6 +91,13 @@ def manifold_muon(
                 break
             # Update the dual variable
             Lambda -= alpha * (1 - step / steps) * H
+
+            if prefix is not None:
+                wandb.log(
+                    {
+                        f"{prefix}/effective_step_size": effective_step_size,
+                    }
+                )
         else:
             # Do ADMM
             Lambda, Omega, D = dual_ascent_update_admm(W, G, Lambda, Omega, D, admm_rho)
