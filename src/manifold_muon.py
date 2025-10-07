@@ -63,6 +63,9 @@ def manifold_muon_admm(W, G, eta=0.1, steps=10, rho=4.0):
         # Update for D (dual ascent)
         D_upd = D + rho * (Omega_upd - 2 * W @ Lambda_upd - G)
         Lambda, Omega, D = Lambda_upd, Omega_upd, D_upd
+    # Calculate A from final ADMM solution
+    # (at convergence, G + 2 * W @ Lambda \approx Omega)
+    A = msign(G + 2 * W @ Lambda)
     # Descend on the primal problem
     new_W = W - eta * A
     # Retract to the manifold
