@@ -8,17 +8,25 @@ import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
 from hyperspherical_descent import hyperspherical_descent
-from manifold_muon import manifold_muon
+from manifold_muon import manifold_muon, manifold_muon_admm
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.49139968, 0.48215827, 0.44653124), (0.24703233, 0.24348505, 0.26158768))
-])
+transform = transforms.Compose(
+    [
+        transforms.ToTensor(),
+        transforms.Normalize(
+            (0.49139968, 0.48215827, 0.44653124), (0.24703233, 0.24348505, 0.26158768)
+        ),
+    ]
+)
 
-train_dataset = torchvision.datasets.CIFAR10(root="./data", train=True, transform=transform, download=True)
-test_dataset = torchvision.datasets.CIFAR10(root="./data", train=False, transform=transform, download=True)
+train_dataset = torchvision.datasets.CIFAR10(
+    root="./data", train=True, transform=transform, download=True
+)
+test_dataset = torchvision.datasets.CIFAR10(
+    root="./data", train=False, transform=transform, download=True
+)
 
 train_loader = DataLoader(dataset=train_dataset, batch_size=1024, shuffle=True)
 test_loader = DataLoader(dataset=test_dataset, batch_size=1024, shuffle=False)
@@ -46,7 +54,7 @@ def train(epochs, initial_lr, update, wd):
     if update == AdamW:
         optimizer = AdamW(model.parameters(), lr=initial_lr, weight_decay=wd)
     else:
-        assert update in [manifold_muon, hyperspherical_descent]
+        assert update in [manifold_muon, manifold_muon_admm, hyperspherical_descent]
         optimizer = None
 
     steps = epochs * len(train_loader)
@@ -86,15 +94,17 @@ def train(epochs, initial_lr, update, wd):
             step += 1
 
             running_loss += loss.item()
-            if (i+1) % 100 == 0:
-                print(f"Epoch [{epoch+1}/{epochs}], Step [{i+1}/{len(train_loader)}], Loss: {loss.item():.4f}")
+            if (i + 1) % 100 == 0:
+                print(
+                    f"Epoch [{epoch + 1}/{epochs}], Step [{i + 1}/{len(train_loader)}], Loss: {loss.item():.4f}"
+                )
 
         end_time = time.time()
         epoch_loss = running_loss / len(train_loader)
         epoch_time = end_time - start_time
         epoch_losses.append(epoch_loss)
         epoch_times.append(epoch_time)
-        print(f"Epoch {epoch+1}, Loss: {epoch_loss}, Time: {epoch_time:.4f} seconds")
+        print(f"Epoch {epoch + 1}, Loss: {epoch_loss}, Time: {epoch_time:.4f} seconds")
     return model, epoch_losses, epoch_times
 
 
@@ -115,15 +125,20 @@ def eval(model):
                 correct += (predicted == labels).sum().item()
             accs.append(100 * correct / total)
 
-    print(f"Accuracy of the network on the {len(test_loader.dataset)} test images: {accs[0]} %")
-    print(f"Accuracy of the network on the {len(train_loader.dataset)} train images: {accs[1]} %")
+    print(
+        f"Accuracy of the network on the {len(test_loader.dataset)} test images: {accs[0]} %"
+    )
+    print(
+        f"Accuracy of the network on the {len(train_loader.dataset)} train images: {accs[1]} %"
+    )
     return accs
+
 
 def weight_stats(model):
     singular_values = []
     norms = []
     for p in model.parameters():
-        u,s,v = torch.svd(p)
+        u, s, v = torch.svd(p)
         singular_values.append(s)
         norms.append(p.norm())
     return singular_values, norms
@@ -131,10 +146,25 @@ def weight_stats(model):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a model on CIFAR-10.")
-    parser.add_argument("--epochs", type=int, default=5, help="Number of epochs to train for.")
+    parser.add_argument(
+        "--epochs", type=int, default=5, help="Number of epochs to train for."
+    )
     parser.add_argument("--lr", type=float, default=0.1, help="Initial learning rate.")
-    parser.add_argument("--update", type=str, default="manifold_muon", choices=["manifold_muon", "hyperspherical_descent", "adam"], help="Update rule to use.")
-    parser.add_argument("--seed", type=int, default=42, help="Seed for the random number generator.")
+    parser.add_argument(
+        "--update",
+        type=str,
+        default="manifold_muon",
+        choices=[
+            "manifold_muon",
+            "manifold_muon_admm",
+            "hyperspherical_descent",
+            "adam",
+        ],
+        help="Update rule to use.",
+    )
+    parser.add_argument(
+        "--seed", type=int, default=42, help="Seed for the random number generator."
+    )
     parser.add_argument("--wd", type=float, default=0.0, help="Weight decay for AdamW.")
     args = parser.parse_args()
 
@@ -146,20 +176,21 @@ if __name__ == "__main__":
 
     update_rules = {
         "manifold_muon": manifold_muon,
+        "manifold_muon_admm": manifold_muon_admm,
         "hyperspherical_descent": hyperspherical_descent,
-        "adam": AdamW
+        "adam": AdamW,
     }
 
     update = update_rules[args.update]
 
     print(f"Training with: {args.update}")
-    print(f"Epochs: {args.epochs} --- LR: {args.lr}", f"--- WD: {args.wd}" if args.update == "adam" else "")
+    print(
+        f"Epochs: {args.epochs} --- LR: {args.lr}",
+        f"--- WD: {args.wd}" if args.update == "adam" else "",
+    )
 
     model, epoch_losses, epoch_times = train(
-        epochs=args.epochs,
-        initial_lr=args.lr,
-        update=update,
-        wd=args.wd
+        epochs=args.epochs, initial_lr=args.lr, update=update, wd=args.wd
     )
     test_acc, train_acc = eval(model)
     singular_values, norms = weight_stats(model)
@@ -175,13 +206,13 @@ if __name__ == "__main__":
         "test_acc": test_acc,
         "train_acc": train_acc,
         "singular_values": singular_values,
-        "norms": norms
+        "norms": norms,
     }
 
     filename = f"update-{args.update}-lr-{args.lr}-wd-{args.wd}-seed-{args.seed}.pkl"
     os.makedirs("results", exist_ok=True)
 
-    print(f"Saving results to {os.path.join("results", filename)}")
+    print(f"Saving results to {os.path.join('results', filename)}")
     with open(os.path.join("results", filename), "wb") as f:
         pickle.dump(results, f)
-    print(f"Results saved to {os.path.join("results", filename)}")
+    print(f"Results saved to {os.path.join('results', filename)}")
