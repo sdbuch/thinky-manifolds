@@ -16,23 +16,23 @@ def dual_ascent_update_subgradient(W, G, Lambda):
 
 
 @torch.no_grad()
-def dual_ascent_update_admm(W, G, Lambda, Omega, D, rho):
+def dual_ascent_update_admm(W, G, Lambda, X, Omega, rho):
     # Update for Lambda (orthonormal least-squares solve)
-    P = W.mT @ (1 / rho * D + Omega - G)
+    P = W.mT @ (1 / rho * Omega + X - G)
     Lambda_upd = 0.25 * (P + P.mT)
-    # Update for Omega (singular value thresholding)
-    B = G + 2 * W @ Lambda_upd - 1 / rho * D
+    # Update for X (singular value thresholding)
+    B = G + 2 * W @ Lambda_upd - 1 / rho * Omega
     # Clip with SVD (sad face)
     # U, s, VT = torch.linalg.svd(B, full_matrices=False)
     # s_upd = torch.clamp(s - 1 / rho, min=0.0)
-    # Omega_upd = U @ torch.diag(s_upd) @ VT
+    # X_upd = U @ torch.diag(s_upd) @ VT
     # Clip with msign (happy face?)
     eye = torch.eye(B.shape[1], device=B.device, dtype=B.dtype)
     P_pos = 0.5 * (eye + msign(B.mT @ B - 1 / rho**2 * eye))
-    Omega_upd = (B - 1 / rho * msign(B)) @ P_pos
-    # Update for D (dual ascent)
-    D_upd = D + rho * (Omega_upd - 2 * W @ Lambda_upd - G)
-    return Lambda_upd, Omega_upd, D_upd
+    X_upd = (B - 1 / rho * msign(B)) @ P_pos
+    # Update for Omega (dual ascent)
+    Omega_upd = Omega + rho * (X_upd - 2 * W @ Lambda_upd - G)
+    return Lambda_upd, X_upd, Omega_upd
 
 
 @torch.no_grad()
@@ -55,8 +55,8 @@ def manifold_muon(
     else:
         # Initializations for ADMM
         Lambda = -0.25 * (W.T @ G + G.T @ W)
-        Omega = G + 2 * W @ Lambda
-        D = torch.zeros_like(Omega)
+        X = G + 2 * W @ Lambda
+        Omega = torch.zeros_like(X)
 
     # Track losses and effective step sizes
     dual_losses = []
@@ -102,10 +102,10 @@ def manifold_muon(
                 )
         else:
             # Do ADMM
-            Lambda, Omega, D = dual_ascent_update_admm(W, G, Lambda, Omega, D, admm_rho)
+            Lambda, X, Omega = dual_ascent_update_admm(W, G, Lambda, X, Omega, admm_rho)
 
-            # Check feasibility: G + 2 * W @ Lambda - Omega = 0
-            feasibility_residual = G + 2 * W @ Lambda - Omega
+            # Check feasibility: G + 2 * W @ Lambda - X = 0
+            feasibility_residual = G + 2 * W @ Lambda - X
             feasibility_norm = torch.norm(feasibility_residual) / math.sqrt(
                 feasibility_residual.numel()
             )
