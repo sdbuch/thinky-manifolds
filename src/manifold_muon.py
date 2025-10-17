@@ -48,23 +48,23 @@ def manifold_muon_admm(W, G, eta=0.1, steps=10, rho=4.0):
         G = G.T
     # Initialize the lagrangian, slack, and dual variable
     Lambda = -0.25 * (W.T @ G + G.T @ W)
-    Omega = G + 2 * W @ Lambda
-    D = torch.zeros_like(Omega)
+    X = G + 2 * W @ Lambda
+    Omega = torch.zeros_like(X)
     # Solve the dual problem with ADMM to find the update direction A
     for step in range(steps):
         # Update for Lambda (orthonormal least-squares solve)
-        P = W.mT @ (1 / rho * D + Omega - G)
+        P = W.mT @ (1 / rho * Omega + X - G)
         Lambda_upd = 0.25 * (P + P.mT)
-        # Update for Omega (singular value thresholding)
-        B = G + 2 * W @ Lambda_upd - 1 / rho * D
+        # Update for X (singular value thresholding)
+        B = G + 2 * W @ Lambda_upd - 1 / rho * Omega
         eye = torch.eye(B.shape[1], device=B.device, dtype=B.dtype)
         P_pos = 0.5 * (eye + msign(B.mT @ B - 1 / rho**2 * eye))
-        Omega_upd = (B - 1 / rho * msign(B)) @ P_pos
-        # Update for D (dual ascent)
-        D_upd = D + rho * (Omega_upd - 2 * W @ Lambda_upd - G)
-        Lambda, Omega, D = Lambda_upd, Omega_upd, D_upd
+        X_upd = (B - 1 / rho * msign(B)) @ P_pos
+        # Update for Omega (dual ascent)
+        Omega_upd = Omega + rho * (X_upd - 2 * W @ Lambda_upd - G)
+        Lambda, X, Omega = Lambda_upd, X_upd, Omega_upd
     # Calculate A from final ADMM solution
-    # (at convergence, G + 2 * W @ Lambda \approx Omega)
+    # (at convergence, G + 2 * W @ Lambda \approx X)
     A = msign(G + 2 * W @ Lambda)
     # Descend on the primal problem
     new_W = W - eta * A
