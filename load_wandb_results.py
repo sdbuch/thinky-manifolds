@@ -20,8 +20,8 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-# Initialize wandb API
-api = wandb.Api()
+# Initialize wandb API with increased timeout for slow connections
+api = wandb.Api(timeout=120)
 
 # Build filter
 filters = {}

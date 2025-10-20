@@ -1,5 +1,4 @@
 run_name,state,manifold_steps,admm_rho,lr,epochs,update_rule,test_accuracy,train_accuracy,test_loss,train_loss
-manifold_muon-lr0.1-20251007-021350,failed,0,,0.1,5,manifold_muon,,,,
 manifold_muon-lr0.1-20251007-021444,finished,0,,0.1,5,manifold_muon,52.32,65.218,1.3631597757339478,1.089162410521994
 manifold_muon-admm-rho2.0-lr0.1-20251007-012341,finished,1,2.0,0.1,5,manifold_muon,52.53,64.848,1.3679468035697937,1.0936644271928435
 manifold_muon-admm-rho4.0-lr0.1-20251007-012425,finished,1,4.0,0.1,5,manifold_muon,52.53,64.848,1.3679468035697937,1.0936644271928435
