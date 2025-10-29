@@ -21,16 +21,17 @@ parser.add_argument(
     help='Filter runs before this datetime (format: YYYYMMDD-HHMMSS, e.g., "20251006-143000")',
 )
 parser.add_argument(
-    "--output",
+    "--run-ids",
     type=str,
-    default="dual_loss_data.csv",
-    help="Output CSV filename (default: dual_loss_data.csv)",
+    nargs="+",
+    default=None,
+    help="Specific run IDs to export (space-separated list, if not specified will use all filtered runs)",
 )
 parser.add_argument(
-    "--run-id",
+    "--trace",
     type=str,
-    default=None,
-    help="Specific run ID to export (if not specified, will use all filtered runs)",
+    default="fc1.weight/e0_d00/dual_loss",
+    help="WandB metric key to export (default: 'fc1.weight/e0_d00/dual_loss')",
 )
 args = parser.parse_args()
 
@@ -56,21 +57,32 @@ if args.before:
     print(f"Filtering runs created before: {dt}")
 
 # Get runs
-if args.run_id:
-    # Get specific run
-    print(f"Loading specific run: {args.run_id}")
-    runs = [api.run(f"thinky-manifolds/{args.run_id}")]
+if args.run_ids:
+    # Get specific runs
+    print(f"Loading {len(args.run_ids)} specific run(s)")
+    runs = []
+    for run_id in args.run_ids:
+        try:
+            runs.append(api.run(f"thinky-manifolds/{run_id}"))
+            print(f"  -> Loaded run: {run_id}")
+        except Exception as e:
+            print(f"  -> Error loading run {run_id}: {e}")
 else:
     # Get filtered runs from the project
     print(f"Loading runs from thinky-manifolds project...")
     runs = api.runs("thinky-manifolds", filters=filters if filters else None)
 
-# Collect data from all runs
-all_data = []
-metric_key = "fc1.weight/e0_d00/dual_loss"
+# Process each run and create individual CSV files
+metric_key = args.trace
+successful_exports = 0
+
+# Extract a clean name for the metric column from the trace
+# e.g., "fc1.weight/e0_d00/dual_loss" -> "dual_loss"
+# or "fc1.weight/e0_d00/primal_residual" -> "primal_residual"
+metric_column_name = metric_key.split("/")[-1]
 
 for i, run in enumerate(runs):
-    print(f"Processing run {i + 1}: {run.name} (ID: {run.id})")
+    print(f"\nProcessing run {i + 1}: {run.name} (ID: {run.id})")
 
     # Get the history (time-series data) for this run
     history = run.history(keys=[metric_key, "_step"], pandas=True)
@@ -92,6 +104,7 @@ for i, run in enumerate(runs):
     # Add run metadata
     history["run_id"] = run.id
     history["run_name"] = run.name
+    history["trace"] = metric_key  # Store the WandB metric key
 
     # Add config parameters that might be useful for grouping
     history["manifold_steps"] = run.config.get("manifold_steps")
@@ -100,24 +113,21 @@ for i, run in enumerate(runs):
     history["update_rule"] = run.config.get("update_rule")
 
     # Rename columns for clarity
-    history = history.rename(columns={metric_key: "dual_loss", "_step": "step"})
+    history = history.rename(columns={metric_key: metric_column_name, "_step": "step"})
 
-    all_data.append(history)
+    # Sort by step
+    history = history.sort_values("step")
 
-# Combine all data
-if not all_data:
+    # Save to CSV with run_id as filename
+    output_file = f"{run.id}.csv"
+    history.to_csv(output_file, index=False)
+    print(f"  -> Exported {len(history)} data points to {output_file}")
+    successful_exports += 1
+
+# Summary
+if successful_exports == 0:
     print("\nNo data found for the specified metric!")
     exit(1)
 
-df = pd.DataFrame(pd.concat(all_data, ignore_index=True))
-
-# Sort by run and step
-df = df.sort_values(["run_id", "step"])
-
-# Save to CSV
-df.to_csv(args.output, index=False)
-print(f"\nExported {len(df)} data points to {args.output}")
-print(f"Number of runs: {df['run_id'].nunique()}")
-print(f"\nColumns: {list(df.columns)}")
-print(f"\nFirst few rows:")
-print(df.head(10))
+print(f"\n{'=' * 60}")
+print(f"Successfully exported {successful_exports} run(s)")
